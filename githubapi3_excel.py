@@ -28,11 +28,12 @@ class gBranch:
         base64string = base64.encodestring('%s/token:%s' % (self.__ss['org_owner_id'],self.__ss['org_token'])).replace('\n', '')
         headers={ 'Content-Type': 'application/json', 'Authorization': "Basic %s" % base64string } 
         #request.get_method = lambda: method
+        print data
         try:
-            res = requests.get(url,data=json.dumps(data), headers=headers)
+            res = requests.get(url, params=data, headers=headers)
             response=res.json()
             while 'next' in res.links.keys():
-                res=requests.get(res.links['next']['url'],headers=headers)
+                res=requests.get(res.links['next']['url'], params=data, headers=headers)
                 response.extend(res.json())
             # print json.dumps(response,sort_keys=True, indent=4)
             return response
@@ -55,24 +56,24 @@ class gBranch:
         return [ r['name'] for r in resp ] 
         
     # list all content in an organization
-    def list_files(self, repos ):
+    def list_files(self, repos, branch='master' ):
         #url = "%s/orgs/%s/repos" % ( self.__ss['api_endpoint'], self.__org )
         url = "%s/repos/%s/%s/contents" % ( self.__ss['api_endpoint'], self.__ss['org_owner_id'], repos )
-        print "list file url %s in repos %s "  % ( url, repos )
-        resp = self.__githubapi_request(url)
-        print json.dumps(resp, sort_keys=True, indent=4)
+        print "list file url %s in repos %s in branch %s"  % ( url, repos, branch )
+        resp = self.__githubapi_request(url, data={ "ref": str(branch) })
+        # print json.dumps(resp, sort_keys=True, indent=4)
         for r in resp:
             self.__file_url[r['path']] = r['url']
         return self.__file_url
 
     # list all content in an organization
-    def download_file(self, filename):
+    def download_file(self, filename, branch='master'):
         #url = "%s/orgs/%s/repos" % ( self.__ss['api_endpoint'], self.__org )
         # url = "%s/repos/%s/%s/contents/file" % ( self.__ss['api_endpoint'], self.__ss['org_owner_id'], repos )
-        print "list file url %s "  % ( self.__file_url[filename])
-        resp = self.__githubapi_request(self.__file_url[filename])
+        print "list file url %s in branch %s"  % ( self.__file_url[filename], branch)
+        resp = self.__githubapi_request(self.__file_url[filename], data={ "ref": str(branch) })
         content = base64.decodestring(resp['content'])
-        with open(filename, "wb") as f:
+        with open( "%s-%s" % (branch,filename), "wb") as f:
             f.write(content)
  
     # list all branches in a repository
@@ -97,10 +98,16 @@ def main():
     # gb=gBranch('UnixServerOperations')
     # gb=gBranch('NGSE')
     repos = gb.list_repos()
-    print repos[0]
+    print repos
     #for r in repos:
     #    for bh in gb.list_branch(r):
     #        gb.get_branch(r, bh)
+    repos = 'excel_test'
+    for bh in gb.list_branch(repos):
+        print bh
+        for f in gb.list_files(repos, branch=bh):
+            print f, bh
+            gb.download_file(f,branch=bh)   
     #files = gb.list_files(repos[0])
     #for f in files:
     #    print f
